@@ -15,13 +15,23 @@ public class DistinctionManager : MonoBehaviour {
     public Texture2D[] MP4textureArray;
     public Texture2D[] TStextureArray;
 
+    public List<Color[]> MP4ColorsList = new List<Color[]>();
+    public List<Color[]> TSColorsList = new List<Color[]>();
+
     public string[] MP4ImageFileNameArray;
     public string[] TSImageFileNameArray;
 
     public string MP4Path = @"E:\Study\ImageDiscriminatorTestSample\MP4\";
     public string TSPath = @"E:\Study\ImageDiscriminatorTestSample\TS\";
 
+    private int MP4ChunkCount = 0;
+    private int TSChunkCount = 0;
+
+    private int MinChunkCount = 0;
+
     private bool getFileState = false;
+    private bool Judge = true;
+
 
     public enum MovieType
     {
@@ -29,7 +39,7 @@ public class DistinctionManager : MonoBehaviour {
         TS
     }
 
-    private readonly int MaxLoadImageCount = 50;
+    private readonly int MaxLoadImageCount = 100;
     private readonly string[] ImageType = new string[] { ".jpg",".png"};
 
     // Use this for initialization
@@ -43,10 +53,47 @@ public class DistinctionManager : MonoBehaviour {
         //Task TestTask = new Task(()=> Texture2DLoadImage(0,0));
         //TestTask.Start();
         Texture2DLoadImage(0, MaxLoadImageCount);
+        Debug.Log(MP4textureArray[0].GetPixels().Length);
+        Debug.Log(TStextureArray[0].GetPixels().Length);
 
         
+        TimeChecker.StartTimer(1, "Start");
+        
+        TaskJudge();
+
+
+        TimeChecker.EndTimer(1);
+
+        Debug.Log("result : " +Judge);
 
     }
+
+    private void TaskJudge()
+    {
+        int half =(int)( MaxLoadImageCount * 0.5f);
+        for (int index = 0; index <  MinChunkCount; index+=MaxLoadImageCount)
+        {
+            Texture2DLoadImage(index, MaxLoadImageCount);
+            Task judge1 = new Task(() => TaskImage(half));
+            Task judge2 = new Task(() => TaskImage(MaxLoadImageCount));
+            judge1.Start();
+            judge2.Start();
+            Task.WaitAll(judge1,judge2);
+        }
+    }
+
+    private void TaskImage(int num)
+    {
+        for (int index = 0; index < num; index++)
+        {
+            if(!ImageDistinction.ImageDistinctionFunction(MP4ColorsList[index], TSColorsList[index]))
+            {
+                Debug.LogError("Image X");
+                return;
+            }
+        }
+    }
+    
 
     private void TempTexture2DCreate()
     {
@@ -61,15 +108,18 @@ public class DistinctionManager : MonoBehaviour {
     }
     private void Texture2DLoadImage(int num, int lenght)
     {
-        
-
         Debug.Log("check1 " + MP4ImageByteList.Count);
         Debug.Log("check2 " + TSImageByteList.Count);
+        MP4ColorsList.Clear();
+        TSColorsList.Clear();
         for (int index = 0; index < lenght; index++)
         {
             MP4textureArray[index].LoadImage(MP4ImageByteList[index]);
+            MP4ColorsList.Add(MP4textureArray[index].GetPixels());
             TStextureArray[index].LoadImage(TSImageByteList[index]);
+            TSColorsList.Add(TStextureArray[index].GetPixels());
         }
+        
     }
 
     private void LoadPath2ImageByte(int num)
@@ -105,6 +155,16 @@ public class DistinctionManager : MonoBehaviour {
         T_GetTSFileName.Start();
         
         Task.WaitAll(T_GetMP4FileName, T_GetTSFileName);
+
+        if(MP4ChunkCount > TSChunkCount)
+        {
+            MinChunkCount = TSChunkCount;
+        }
+        else
+        {
+            MinChunkCount = MP4ChunkCount;
+        }
+        Debug.Log("Minchungk : " + MinChunkCount);
     }
     private void GetALLFileName(MovieType type, string path)
     {
@@ -171,6 +231,9 @@ public class DistinctionManager : MonoBehaviour {
                 MP4ImageFileNameArray[index] = fileInfos[index].Name;
             }
         }
+
+        MP4ChunkCount = fileInfos.Length / MaxLoadImageCount;
+
         Debug.Log("MP4 File Count : " + filecount);
         return true;
     }
@@ -199,7 +262,9 @@ public class DistinctionManager : MonoBehaviour {
                 TSImageFileNameArray[index] = fileInfos[index].Name;
             }
         }
-        Debug.Log("TS File Count : " + filecount);
+
+        TSChunkCount = fileInfos.Length / MaxLoadImageCount;
+
         return true;
     }
     #endregion

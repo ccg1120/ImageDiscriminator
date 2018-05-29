@@ -32,7 +32,6 @@ public class ImageDistinction : MonoBehaviour {
     /// <returns></returns>
     public static bool ImageDistinctionFunction(Color[] color1, Color[] color2)
     {
-        
         if(color1.Length != color2.Length)
         {
             return false;
