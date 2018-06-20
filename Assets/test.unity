@@ -208,11 +208,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba4051fcc0d309144bbb9cb5dddf5f8f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MaxLoadImageCount: 10
-  texture2d1Array: []
-  texture2d2Array: []
-  SampelPath: E:\Study\ImageDiscriminatorTestSample\test.jpg
-  SampelPath2: E:\Study\ImageDiscriminatorTestSample\test2.png
+  MP4textureArray: []
+  TStextureArray: []
+  MP4ImageFileNameArray: []
+  TSImageFileNameArray: []
+  MP4Path: E:\Study\ImageDiscriminatorTestSample\MP4\
+  TSPath: E:\Study\ImageDiscriminatorTestSample\TS\
 --- !u!81 &1107778568
 AudioListener:
   m_ObjectHideFlags: 0
