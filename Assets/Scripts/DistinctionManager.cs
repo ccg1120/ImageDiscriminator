@@ -103,23 +103,24 @@ public class DistinctionManager : MonoBehaviour {
 
     private void ColorClear()
     {
-        Debug.Log("Count :" + MP4ColorsList.Count);
+        Debug.Log("Count 1:" + MP4ColorsList.Count);
+        Debug.Log("Count 2:" + TSColorsList.Count);
         //MP4ColorsList
-        for (int index = MP4ColorsList.Count - 1; index >= 0; index--)
-        {
-            Debug.Log("index :" + index);
-            MP4ColorsList[index] = null;
-            MP4ColorsList.RemoveAt(index);
-        }
-        MP4ColorsList.Clear();
+        //for (int index = MP4ColorsList.Count - 1; index >= 0; index--)
+        //{
+        //    Debug.Log("index :" + index);
+        //    MP4ColorsList[index] = null;
+        //    MP4ColorsList.RemoveAt(index);
+        //}
+        //MP4ColorsList.Clear();
         Debug.Log("MP4ColorsList capacity :" + MP4ColorsList.Capacity);
 
-        for (int index = TSColorsList.Count - 1; index >= 0; index--)
-        {
-            TSColorsList[index] = null;
-            TSColorsList.RemoveAt(index);
-        }
-        TSColorsList.Clear();
+        //for (int index = TSColorsList.Count - 1; index >= 0; index--)
+        //{
+        //    TSColorsList[index] = null;
+        //    TSColorsList.RemoveAt(index);
+        //}
+        //TSColorsList.Clear();
 
     }
 
@@ -197,7 +198,7 @@ public class DistinctionManager : MonoBehaviour {
         ColorClear();
         for (int index = 0; index < MaxLoadImageCount; index++)
         {
-            switch(type)
+            switch (type)
             {
                 case 0:
                     MP4textureArray[index].LoadImage(MP4ImageByteList1[index]);
@@ -209,25 +210,45 @@ public class DistinctionManager : MonoBehaviour {
                     TStextureArray[index].LoadImage(TSImageByteList2[index]);
                     break;
             }
-            Color[] mp4color = MP4textureArray[index].GetPixels();
+
+            int mp4colorlenght = MP4textureArray[index].GetPixels32().Length;
+            Debug.Log("Lenght : " + mp4colorlenght);
+
+            //Color32[] mp4color = new Color32[mp4colorlenght];
+
+            //mp4color.CopyTo(MP4textureArray[index].GetPixels32(),0);
+
+
             
+
+            //MP4ColorsList.Add(mp4color);
+
+
             //MP4ColorsList[index] = new Color[mp4color.Length];
             //MP4ColorsList[index] = mp4color;
 
-            MP4ColorsList.Add(mp4color);
-            Color[] tscolor = TStextureArray[index].GetPixels();
-            
+            //int tscolorlenght = TStextureArray[index].GetPixels32().Length;
+            //Color32[] tscolor = new Color32[tscolorlenght];
+            ////TStextureArray[index].GetPixels32().CopyTo(tscolor,tscolorlenght);
+            //tscolor.CopyTo(TStextureArray[index].GetPixels32(),0);
+            //Color[] tscolor = TStextureArray[index].GetPixels();
+
+            //tscolor = null;
+            //TSColorsList.Add(tscolor);
 
             //TSColorsList[index] = new Color[mp4color.Length];
             //TSColorsList[index] = tscolor;
-            TSColorsList.Add(tscolor);
 
-            Destroy(MP4textureArray[index]);
-            Destroy(TStextureArray[index]);
+            DestroyImmediate(MP4textureArray[index],true);
+            DestroyImmediate(TStextureArray[index],true);
 
-            MP4textureArray[index] = null;
-            TStextureArray[index] = null;
+            //tscolor = null;
+
+            //MP4textureArray[index] = null;
+            //TStextureArray[index] = null;
         }
+
+        System.GC.Collect();
         //DestroyTextureAll();
 
     }
