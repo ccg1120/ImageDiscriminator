@@ -4,7 +4,7 @@ using UnityEngine;
 using System.IO;
 using UnityEngine.UI;
 using System.Threading.Tasks;
-
+using System.Threading;
 //using TimerChecker;
 
 public class DistinctionManager : MonoBehaviour {
@@ -17,15 +17,15 @@ public class DistinctionManager : MonoBehaviour {
 
     private static int currentType = 0;
 
-    public static Texture2D[] MP4textureArray;
-    public static Texture2D[] TStextureArray;
+    public Texture2D[] MP4textureArray;
+    public Texture2D[] TStextureArray;
 
     public List<Color[]> MP4ColorsList = new List<Color[]>();
     public List<Color[]> TSColorsList = new List<Color[]>();
 
     //public Color[][] MP4ColorsList;
     //public Color[][] TSColorsList;
-
+    
     public static string[] MP4ImageFileNameArray;
     public static string[] TSImageFileNameArray;
 
@@ -56,6 +56,8 @@ public class DistinctionManager : MonoBehaviour {
     private static readonly int HalfLoadImageCount = 25;
     private static readonly string[] ImageType = new string[] { ".jpg",".png"};
 
+    private static object lockojbect = new object();
+
     // Use this for initialization
     void Start () {
 
@@ -76,20 +78,11 @@ public class DistinctionManager : MonoBehaviour {
 
         Debug.Log("Task Load Done!!");
 
-        //TimeChecker.StartTimer(1, "Start");
+
 
         TaskJudge();
 
-
-        ////TimeChecker.EndTimer(1);
-
-        //Debug.Log("result : " + Judge);
-
-        //MP4ImageByteList1.Clear();
-        //MP4ImageByteList2.Clear();
-        //TSImageByteList1.Clear();
-        //TSImageByteList2.Clear();
-        ColorClear();
+        
     }
 
     private void Update()
@@ -106,22 +99,22 @@ public class DistinctionManager : MonoBehaviour {
         Debug.Log("Count 1:" + MP4ColorsList.Count);
         Debug.Log("Count 2:" + TSColorsList.Count);
         //MP4ColorsList
-        //for (int index = MP4ColorsList.Count - 1; index >= 0; index--)
-        //{
-        //    Debug.Log("index :" + index);
-        //    MP4ColorsList[index] = null;
-        //    MP4ColorsList.RemoveAt(index);
-        //}
-        //MP4ColorsList.Clear();
-        Debug.Log("MP4ColorsList capacity :" + MP4ColorsList.Capacity);
+        for (int index = MP4ColorsList.Count - 1; index >= 0; index--)
+        {
+            MP4ColorsList[index] = null;
+            MP4ColorsList.RemoveAt(index);
+        }
+        MP4ColorsList.Clear();
 
-        //for (int index = TSColorsList.Count - 1; index >= 0; index--)
-        //{
-        //    TSColorsList[index] = null;
-        //    TSColorsList.RemoveAt(index);
-        //}
-        //TSColorsList.Clear();
+        for (int index = TSColorsList.Count - 1; index >= 0; index--)
+        {
+            TSColorsList[index] = null;
+            TSColorsList.RemoveAt(index);
+        }
+        TSColorsList.Clear();
 
+        Debug.Log("MP4ColorsList.Count : " + MP4ColorsList.Count);
+        Debug.Log("TSColorsList.Count : " + TSColorsList.Count);
     }
 
     private void TaskJudge()
@@ -152,7 +145,7 @@ public class DistinctionManager : MonoBehaviour {
         //DestroyTextureAll();
     }
 
-    private static void DestroyTextureAll()
+    private void DestroyTextureAll()
     {
         for (int index = MaxLoadImageCount -1 ; index >= 0; index--)
         {
@@ -195,7 +188,7 @@ public class DistinctionManager : MonoBehaviour {
         Debug.Log("check2 " + TSImageByteList1.Count);
 
         Debug.Log("type : "+type);
-        ColorClear();
+        //ColorClear();
         for (int index = 0; index < MaxLoadImageCount; index++)
         {
             switch (type)
@@ -210,53 +203,33 @@ public class DistinctionManager : MonoBehaviour {
                     TStextureArray[index].LoadImage(TSImageByteList2[index]);
                     break;
             }
+            Color[] tempmp4 = MP4textureArray[index].GetPixels();
+            MP4ColorsList.Add(tempmp4);
+            Color[] tempts = TStextureArray[index].GetPixels();
+            TSColorsList.Add(tempts);
 
-            int mp4colorlenght = MP4textureArray[index].GetPixels32().Length;
-            Debug.Log("Lenght : " + mp4colorlenght);
-
-            //Color32[] mp4color = new Color32[mp4colorlenght];
-
-            //mp4color.CopyTo(MP4textureArray[index].GetPixels32(),0);
-
-
-            
-
-            //MP4ColorsList.Add(mp4color);
-
-
-            //MP4ColorsList[index] = new Color[mp4color.Length];
-            //MP4ColorsList[index] = mp4color;
-
-            //int tscolorlenght = TStextureArray[index].GetPixels32().Length;
-            //Color32[] tscolor = new Color32[tscolorlenght];
-            ////TStextureArray[index].GetPixels32().CopyTo(tscolor,tscolorlenght);
-            //tscolor.CopyTo(TStextureArray[index].GetPixels32(),0);
-            //Color[] tscolor = TStextureArray[index].GetPixels();
-
-            //tscolor = null;
-            //TSColorsList.Add(tscolor);
-
-            //TSColorsList[index] = new Color[mp4color.Length];
-            //TSColorsList[index] = tscolor;
-
-            DestroyImmediate(MP4textureArray[index],true);
-            DestroyImmediate(TStextureArray[index],true);
-
-            //tscolor = null;
-
-            //MP4textureArray[index] = null;
-            //TStextureArray[index] = null;
+            MP4textureArray[index] = null;
+            TStextureArray[index] = null;
         }
 
-        System.GC.Collect();
-        //DestroyTextureAll();
-
+        for (int index = 0; index < MaxLoadImageCount; index++)
+        {
+            Destroy(MP4textureArray[index]);
+            Destroy(TStextureArray[index]);
+        }
     }
 
     private static void LoadPath2ImageByte(int num, int type)
     {
+        int intype = -1;
         Debug.Log("LoadPath2ImageByte : type :: " + type);
-        int intype = type;
+        lock (lockojbect)
+        {
+            intype = type;
+            
+            Debug.Log("Thread ID :" + Thread.CurrentThread.ManagedThreadId + ", type : " + intype);
+        }
+        
         Debug.Log("LoadPath2ImageByte : intype :: " + intype);
 
         switch (type)
