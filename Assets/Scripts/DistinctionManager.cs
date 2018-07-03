@@ -9,22 +9,16 @@ using System.Threading;
 
 public class DistinctionManager : MonoBehaviour {
 
-    public static  List<byte[]> MP4ImageByteList1 = new List<byte[]>(); 
-    public static List<byte[]> TSImageByteList1 = new List<byte[]>();
 
-    public static List<byte[]> MP4ImageByteList2 = new List<byte[]>();
-    public static List<byte[]> TSImageByteList2= new List<byte[]>();
+    public static Data[] DataArray = new Data[2];
 
-    private static int currentType = 0;
+    private static int currentSwitchingNum = 0;
 
     public Texture2D[] MP4textureArray;
     public Texture2D[] TStextureArray;
 
-    public List<Color[]> MP4ColorsList = new List<Color[]>();
-    public List<Color[]> TSColorsList = new List<Color[]>();
-
-    //public Color[][] MP4ColorsList;
-    //public Color[][] TSColorsList;
+    public static List<Color[]> MP4ColorsList = new List<Color[]>();
+    public static List<Color[]> TSColorsList = new List<Color[]>();
     
     public static string[] MP4ImageFileNameArray;
     public static string[] TSImageFileNameArray;
@@ -38,14 +32,9 @@ public class DistinctionManager : MonoBehaviour {
             
     private static int minFileCount = 0;
     private static int minChunkCount = 0;
-            
-    private static int currentChunkCount = 0;
-            
-    private static int beforeChunkCount = 0;
-            
-    private static bool Judge = true;
 
-    
+    private static int currentChunkCount = 0;
+
     public enum MovieType
     {
         MP4,
@@ -56,42 +45,86 @@ public class DistinctionManager : MonoBehaviour {
     private static readonly int HalfLoadImageCount = 25;
     private static readonly string[] ImageType = new string[] { ".jpg",".png"};
 
-    private static object lockojbect = new object();
+    private static object lock_LoadPath = new object();
+    private static object lock_Judge = new object();
 
+    private static Task[] T_JudgeArray = null;
+    
+
+    private static Task[] T_LoadPath2ImageByte = null;
+    
+
+    private static bool judgeMainCheck = false;
     // Use this for initialization
     void Start () {
 
         GetALLFileName();
         TempTexture2DCreate();
-        int gettype = currentType;
-        Task T_LoadPath2ImageByte1 = new Task(()=> LoadPath2ImageByte(minChunkCount * MaxLoadImageCount, gettype));
-        T_LoadPath2ImageByte1.Start();
 
-        minChunkCount++;
-        currentType = 1;
-        int gettype2 = currentType;
-        Task T_LoadPath2ImageByte2 = new Task(() => LoadPath2ImageByte(minChunkCount * MaxLoadImageCount, gettype2));
-        T_LoadPath2ImageByte2.Start();
-        currentType = 0;
+        //버퍼2개
+        DataArray = new Data[2];
+        for (int index = 0; index < DataArray.Length; index++)
+        {
+            DataArray[index] = new Data();
+            //비교 영상 갯수 ,MP4, ts 2종류
+            DataArray[index].ImageByteDataList = new List<byte[]>[2];
+            for (int index2 = 0; index2 < DataArray[index].ImageByteDataList.Length; index2++)
+            {
+                DataArray[index].ImageByteDataList[index2] = new List<byte[]>();
+            }
+        }
+        //테스크 할당 
+        T_JudgeArray = new Task[2];
+        for (int index = 0; index < T_JudgeArray.Length; index++)
+        {
+            int num = index;
+            T_JudgeArray[index] = new Task(() => TaskImage(num * HalfLoadImageCount));
+        }
 
-        Task.WaitAll(T_LoadPath2ImageByte1, T_LoadPath2ImageByte2);
+        T_LoadPath2ImageByte = new Task[2];
+        for (int index = 0; index < T_LoadPath2ImageByte.Length; index++)
+        {
+            T_LoadPath2ImageByte[index] = new Task(() => LoadPath2ImageByte());
+            T_LoadPath2ImageByte[index].Start();
+        }
+
+        Task.WaitAll(T_LoadPath2ImageByte);
+
+        
 
         Debug.Log("Task Load Done!!");
 
-
-
-        TaskJudge();
+        //TaskJudge();
 
         
     }
 
     private void Update()
     {
-        //if(currentChunkCount > beforeChunkCount)
-        //{
-        //    beforeChunkCount = currentChunkCount;
-        //    TaskJudge();
-        //}
+        if(currentChunkCount >= minChunkCount)
+        {
+            Debug.Log("=====Done!!!!!!!!!!!!");
+            return;
+        }
+
+       
+        if(!judgeMainCheck)
+        {
+            for (int index = 0; index < DataArray.Length; index++)
+            {
+                if(DataArray[index].CurrentDataState == Data.DataState.Clear)
+                {
+                    for (int index2 = 0; index2 < T_JudgeArray.Length; index2++)
+                    {
+                        if (T_JudgeArray[index2].Status != TaskStatus.Running)
+                        {
+                            T_JudgeArray[index2].Start();
+                        }
+                    }
+                }
+            }
+            TaskJudge();
+        }
     }
 
     private void ColorClear()
@@ -119,12 +152,22 @@ public class DistinctionManager : MonoBehaviour {
 
     private void TaskJudge()
     {
-        Texture2DLoadImage(currentType);
-        //Task judge1 = new Task(() => TaskImage(0));
-        //Task judge2 = new Task(() => TaskImage(HalfLoadImageCount));
-        //judge1.Start();
-        //judge2.Start();
-        //Task.WaitAll(judge1, judge2);
+        judgeMainCheck = true;
+
+        Texture2DLoadImage(currentSwitchingNum);
+
+        TimerChecker.TimeChecker.StartTimer(0," START  Image");
+
+
+        for (int index = 0; index < T_JudgeArray.Length; index++)
+        {
+            T_JudgeArray[index].Start();
+        }
+        Task.WaitAll(T_JudgeArray);
+        
+
+        TimerChecker.TimeChecker.EndTimer(0);
+        
 
         ColorClear();
         Resources.UnloadUnusedAssets();
@@ -132,19 +175,18 @@ public class DistinctionManager : MonoBehaviour {
 
         
         //상태 교환
-        if (currentType == 0)
+        if (currentSwitchingNum == 0)
         {
-            currentType = 1;
+            currentSwitchingNum = 1;
         }
-        else if (currentType == 1)
+        else if (currentSwitchingNum == 1)
         {
-            currentType = 0;
+            currentSwitchingNum = 0;
         }
-        currentChunkCount++;
 
-        //DestroyTextureAll();
+        judgeMainCheck = false;
     }
-
+    
     private void DestroyTextureAll()
     {
         for (int index = MaxLoadImageCount -1 ; index >= 0; index--)
@@ -154,16 +196,29 @@ public class DistinctionManager : MonoBehaviour {
         }
     }
 
-    private void TaskImage(int num)
+    private static void TaskImage(int num)
     {
+        int innum;
+        
+        lock (lock_Judge)
+        {
+            Debug.Log(lock_Judge);
+            innum = num;
+            Debug.Log("TaskImage + " + innum);
+        }
+        
+            
         for (int index = 0; index < HalfLoadImageCount; index++)
         {
-            if(!ImageDistinction.ImageDistinctionFunction(MP4ColorsList[num + index], TSColorsList[index]))
+            Debug.Log(innum + index);
+            if (!ImageDistinction.ImageDistinctionFunction(MP4ColorsList[innum + index], TSColorsList[index]))
             {
-                Debug.LogError("Image X");
-                return;
+
+                Debug.LogError("Image X" + (innum + index));
+                continue;
             }
         }
+        Debug.Log("Task Done!!!! "+ Thread.CurrentThread.ManagedThreadId);
     }
     
 
@@ -184,25 +239,11 @@ public class DistinctionManager : MonoBehaviour {
 
     private void Texture2DLoadImage(int type)
     {
-        Debug.Log("check1 " + MP4ImageByteList1.Count);
-        Debug.Log("check2 " + TSImageByteList1.Count);
-
-        Debug.Log("type : "+type);
-        //ColorClear();
         for (int index = 0; index < MaxLoadImageCount; index++)
         {
-            switch (type)
-            {
-                case 0:
-                    MP4textureArray[index].LoadImage(MP4ImageByteList1[index]);
-                    TStextureArray[index].LoadImage(TSImageByteList1[index]);
-                    break;
+            MP4textureArray[index].LoadImage(DataArray[type].ImageByteDataList[0][index]);
+            TStextureArray[index].LoadImage(DataArray[type].ImageByteDataList[1][index]);
 
-                case 1:
-                    MP4textureArray[index].LoadImage(MP4ImageByteList2[index]);
-                    TStextureArray[index].LoadImage(TSImageByteList2[index]);
-                    break;
-            }
             Color[] tempmp4 = MP4textureArray[index].GetPixels();
             MP4ColorsList.Add(tempmp4);
             Color[] tempts = TStextureArray[index].GetPixels();
@@ -217,87 +258,62 @@ public class DistinctionManager : MonoBehaviour {
             Destroy(MP4textureArray[index]);
             Destroy(TStextureArray[index]);
         }
+
+        DataArray[type].CurrentDataState = Data.DataState.Used;
+    }
+    
+    private static void ClearByteList(int num)
+    {
+        if(DataArray[num].CurrentDataState == Data.DataState.Used)
+        {
+            for (int index = 0; index < DataArray[num].ImageByteDataList.Length; index++)
+            {
+                for (int index2 = 0; index2 < DataArray[num].ImageByteDataList[index].Count; index2++)
+                {
+                    DataArray[num].ImageByteDataList[index][index2] = null;
+                }
+                DataArray[num].ImageByteDataList[index].Clear();
+                DataArray[num].CurrentDataState = Data.DataState.Clear;
+            }
+        }
     }
 
-    private static void LoadPath2ImageByte(int num, int type)
+    private static void LoadPath2ImageByte()
     {
         int intype = -1;
-        Debug.Log("LoadPath2ImageByte : type :: " + type);
-        lock (lockojbect)
+        int num;
+        
+        lock (lock_LoadPath)
         {
-            intype = type;
+            intype = currentSwitchingNum;
+            Debug.Log("LoadPath2ImageByte : type :: " + intype);
+            if (currentSwitchingNum == 0)
+            {
+                currentSwitchingNum = 1;
+            }
+            else
+            {
+                currentSwitchingNum = 0;
+            }
+            num = currentChunkCount * MaxLoadImageCount;
+            currentChunkCount++;
             
             Debug.Log("Thread ID :" + Thread.CurrentThread.ManagedThreadId + ", type : " + intype);
         }
-        
+
         Debug.Log("LoadPath2ImageByte : intype :: " + intype);
 
-        switch (type)
-        {
-            case 0:
-                MP4ImageByteList1.Clear();
-                TSImageByteList1.Clear();
-                break;
-            case 1:
-                MP4ImageByteList2.Clear();
-                TSImageByteList2.Clear();
-                break;
-        }
-
+        ClearByteList(intype);
 
         for (int index = 0; index < MaxLoadImageCount; index++)
         {
-            switch (type)
-            {
-                case 0:
-                    MP4ImageByteList1.Add(LoadImage(MP4Path + MP4ImageFileNameArray[num + index]));
-                    TSImageByteList1.Add(LoadImage(TSPath + TSImageFileNameArray[num + index]));
-                    break;
-                case 1:
-                    MP4ImageByteList2.Add(LoadImage(MP4Path + MP4ImageFileNameArray[num + index]));
-                    TSImageByteList2.Add(LoadImage(TSPath + TSImageFileNameArray[num + index]));
-                    break;
-            }
+            DataArray[intype].ImageByteDataList[0].Add(LoadImage(MP4Path + MP4ImageFileNameArray[num + index]));
+            DataArray[intype].ImageByteDataList[1].Add(LoadImage(TSPath + TSImageFileNameArray[num + index]));
         }
 
+        DataArray[intype].CurrentDataState = Data.DataState.Stay;
         return;
-        //if (currentType == 0)
-        //{
-        //    currentType = 1;
-        //}
-        //else if(currentType == 1)
-        //{
-        //    currentType = 0;
-        //}
-        //minChunkCount++;
     }
-
-    private void LoadPath2ImageByte()
-    {
-        //TimeChecker.StartTimer(0, "Load Files");
-
-        int num = currentChunkCount * MaxLoadImageCount;
-
-        for (int index = 0; index < MaxLoadImageCount; index++)
-        {
-            switch (currentType)
-            {
-                case 0:
-                    MP4ImageByteList1.Add(LoadImage(MP4Path + MP4ImageFileNameArray[num + index]));
-                    TSImageByteList1.Add(LoadImage(TSPath + TSImageFileNameArray[num + index]));
-                    break;
-                case 1:
-                    MP4ImageByteList2.Add(LoadImage(MP4Path + MP4ImageFileNameArray[num + index]));
-                    TSImageByteList2.Add(LoadImage(TSPath + TSImageFileNameArray[num + index]));
-                    break;
-            }
-        }
-
-        currentChunkCount++;
-
-        //TimeChecker.EndTimer(0);
-    }
-
 
     private static byte[] LoadImage(string path)
     {

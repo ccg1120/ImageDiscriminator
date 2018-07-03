@@ -34,6 +34,7 @@ public class ImageDistinction : MonoBehaviour {
     {
         if(color1.Length != color2.Length)
         {
+            Debug.LogError("Lenth error");
             return false;
         }
         for (int index = 0; index < color1.Length; index++)
