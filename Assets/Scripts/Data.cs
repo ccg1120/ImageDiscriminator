@@ -7,6 +7,7 @@ public class Data {
     public enum DataState
     {
         Used, //데이터 사용
+        Run,
         Clear, //초기화 완료
         Stay    // 대기 
     }
