@@ -55,12 +55,14 @@ public class DistinctionManager : MonoBehaviour {
 
     private static Task[] T_LoadPath2ImageByte = null;
 
-    private static Task testTask;
+    
 
     private static bool judgeMainCheck = false;
+
+    
     // Use this for initialization
     void Start () {
-        testTask = new Task(()=>TestThread());
+        
         GetALLFileName();
         TempTexture2DCreate();
 
@@ -104,7 +106,8 @@ public class DistinctionManager : MonoBehaviour {
 
     private void Update()
     {
-        if (currentJudgeTaskCount >= minChunkCount)
+        //if (currentJudgeTaskCount >= minChunkCount)
+        if (currentJudgeTaskCount >= 1)
         {
             Debug.Log("=====Done!!!!!!!!!!!!");
             return;
@@ -138,6 +141,7 @@ public class DistinctionManager : MonoBehaviour {
                     {
                         T_LoadPath2ImageByte[index2] = null;
                         T_LoadPath2ImageByte[index2] = new Task(()=>LoadPath2ImageByte());
+                        break;
                     }
                 }
             }
@@ -146,7 +150,7 @@ public class DistinctionManager : MonoBehaviour {
             //    Debug.Log("judgeMainCheck : " + judgeMainCheck);
             //    if (!judgeMainCheck)
             //    {
-            //        TaskJudge();
+            //        TaskJudge(currentJudgeTaskCount);
             //    }
             //}
         }
@@ -163,18 +167,7 @@ public class DistinctionManager : MonoBehaviour {
             }
             currentJudgeTaskCount++;
         }
-        if (Input.GetKeyDown(KeyCode.B))
-        {
-            if(testTask.Status == TaskStatus.Created)
-            {
-                testTask.Start();
-            }
-            else if(testTask.Status == TaskStatus.RanToCompletion)
-            {
-                testTask = null;
-                testTask = new Task(()=> TestThread());
-            }
-        }
+    
     }
 
 
@@ -209,19 +202,27 @@ public class DistinctionManager : MonoBehaviour {
     {
         Debug.Log("TaskJudge Start");
         judgeMainCheck = true;
+        int buffernum = 0;
+        for (int index = 0; index < DataArray.Length; index++)
+        {
+            if(DataArray[index].CurrentDataState == Data.DataState.Stay)
+            {
+                buffernum = index;
+                break;
+            }
+        }
+        Texture2DLoadImage(buffernum);
 
-        Texture2DLoadImage(num);
+        //TimerChecker.TimeChecker.StartTimer(0," START  Image");
 
-        TimerChecker.TimeChecker.StartTimer(0," START  Image");
-
-
+        Debug.Log("TaskJudge Start Thread");
         for (int index = 0; index < T_JudgeArray.Length; index++)
         {
             T_JudgeArray[index].Start();
         }
         Task.WaitAll(T_JudgeArray);
+        Debug.Log("TaskJudge End Thread");
 
-        
         //꼭 이렇게 초기화를 해야되는가? 재사용을 할수 없는건가?
         for (int index = 0; index < T_JudgeArray.Length; index++)
         {
@@ -229,16 +230,18 @@ public class DistinctionManager : MonoBehaviour {
             T_JudgeArray[index] = new Task(() => TaskImage(count * HalfLoadImageCount));
         }
 
-        TimerChecker.TimeChecker.EndTimer(0);
+        //TimerChecker.TimeChecker.EndTimer(0);
         
 
         ColorClear();
+        
+        ClearByteList(num);
 
-        DataArray[num].CurrentDataState = Data.DataState.Clear;
-        Resources.UnloadUnusedAssets();
-        System.GC.Collect();
+        //Resources.UnloadUnusedAssets();
+        //System.GC.Collect();
 
         currentJudgeCount++;
+        Debug.Log("Current Judeg Count :: " + currentJudgeCount);
         judgeMainCheck = false;
     }
     
@@ -266,9 +269,9 @@ public class DistinctionManager : MonoBehaviour {
         for (int index = 0; index < HalfLoadImageCount; index++)
         {
             Debug.Log(innum + index);
+
             if (!ImageDistinction.ImageDistinctionFunction(MP4ColorsList[innum + index], TSColorsList[index]))
             {
-
                 Debug.LogError("Image X" + (innum + index));
                 continue;
             }
@@ -295,8 +298,16 @@ public class DistinctionManager : MonoBehaviour {
     private void Texture2DLoadImage(int type)
     {
         DataArray[type].CurrentDataState = Data.DataState.Used;
+        
+        
+        Debug.Log("Texture2D Num " + type);
+        Debug.Log("MP4textureArray Length : " + MP4textureArray.Length);
         for (int index = 0; index < MaxLoadImageCount; index++)
         {
+            //Debug.Log("MP4textureArray Texture lenght :" + MP4textureArray[index]);
+            //Debug.Log("data 0 lenght : "+DataArray[type].ImageByteDataList[0].Count);
+            //Debug.Log("data 1 lenght : " + DataArray[type].ImageByteDataList[1].Count);
+
             MP4textureArray[index].LoadImage(DataArray[type].ImageByteDataList[0][index]);
             TStextureArray[index].LoadImage(DataArray[type].ImageByteDataList[1][index]);
 
@@ -305,16 +316,15 @@ public class DistinctionManager : MonoBehaviour {
             Color[] tempts = TStextureArray[index].GetPixels();
             TSColorsList.Add(tempts);
 
-            MP4textureArray[index] = null;
-            TStextureArray[index] = null;
+            //MP4textureArray[index] = null;
+            //TStextureArray[index] = null;
         }
 
-        for (int index = 0; index < MaxLoadImageCount; index++)
-        {
-            Destroy(MP4textureArray[index]);
-            Destroy(TStextureArray[index]);
-        }
-
+        //for (int index = 0; index < MaxLoadImageCount; index++)
+        //{
+        //    Destroy(MP4textureArray[index]);
+        //    Destroy(TStextureArray[index]);
+        //}
     }
     
     private static void ClearByteList(int num)
@@ -329,8 +339,9 @@ public class DistinctionManager : MonoBehaviour {
                     DataArray[num].ImageByteDataList[index][index2] = null;
                 }
                 DataArray[num].ImageByteDataList[index].Clear();
-                DataArray[num].CurrentDataState = Data.DataState.Clear;
+                
             }
+        DataArray[num].CurrentDataState = Data.DataState.Clear;
         //}
     }
 
@@ -343,7 +354,7 @@ public class DistinctionManager : MonoBehaviour {
         {
             intype = currentSwitchingNum;
             Debug.Log("LoadPath2ImageByte : type :: " + intype + ", switch num : " + currentSwitchingNum );
-            ClearByteList(intype);
+            
             num = currentChunkCount * MaxLoadImageCount;
             
             currentChunkCount++;
@@ -356,10 +367,20 @@ public class DistinctionManager : MonoBehaviour {
 
         for (int index = 0; index < MaxLoadImageCount; index++)
         {
+            
             DataArray[intype].ImageByteDataList[0].Add(LoadImage(MP4Path + MP4ImageFileNameArray[num + index]));
             DataArray[intype].ImageByteDataList[1].Add(LoadImage(TSPath + TSImageFileNameArray[num + index]));
         }
 
+        Debug.Log(" Byte array lenght 0 : "+ DataArray[intype].ImageByteDataList[0][0].Length);
+        
+        
+        Debug.Log(" Byte array lenght 1 : " + DataArray[intype].ImageByteDataList[1][0].Length);
+        for (int index = 0; index < DataArray[intype].ImageByteDataList[0][0].Length; index++)
+        {
+            Debug.Log("byte 0 [" + index + "] : " + "Thread ID :" + Thread.CurrentThread.ManagedThreadId +" ==" + DataArray[intype].ImageByteDataList[0][0][index]);
+            Debug.Log("byte 1 [" + index + "] : " + DataArray[intype].ImageByteDataList[1][0][index]);
+        }
         DataArray[intype].CurrentDataState = Data.DataState.Stay;
         return;
     }
@@ -504,3 +525,5 @@ public class DistinctionManager : MonoBehaviour {
     #endregion
 
 }
+
+
